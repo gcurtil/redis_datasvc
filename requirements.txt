@@ -1,0 +1,13 @@
+requests
+numpy
+pandas
+flask 
+waitress
+redis
+pyarrow
+
+# because of warnings from pip install
+pygments
+
+# compression
+lz4
