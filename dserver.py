@@ -15,10 +15,9 @@ import pyarrow as pa
 import pyarrow.feather as ft
 import pyarrow.parquet as pq
 
-import redis
-
 from flask import Flask, request, jsonify
-
+import redis
+import waitress
 
 from util import Timer, TableTimer
 
@@ -33,7 +32,7 @@ app = Flask(__name__)
 REDIS_HOST = ""
 REDIS_PORT = 0
 TABLE_DATA_DIR = 'test_data'
-
+REDIS_R_OBJ: redis.Redis = None
 
 @app.route("/")
 def hello_world():
@@ -128,8 +127,7 @@ def load_table_rbarrow_lz4_indirect():
 def load_table_json_compr_indirect(binfmt=None, compression=None):
     name = request.args.get('name')
     p = os.path.join(TABLE_DATA_DIR, name)
-    timers = []
-    
+    timers = []    
 
     def to_bin(data):
         return data.encode("utf-8") if isinstance(data, str) else data
@@ -180,8 +178,9 @@ def load_table_json_compr_indirect(binfmt=None, compression=None):
     with Timer("store", verbose=True) as t:
         uk =  uuid.uuid4().hex
         key = f"tmpdoc:{uk}"
-        with Timer(f"redis_connect", verbose=True):
-            r = redis.Redis(host='localhost', port=6380, db=0)
+        #with Timer(f"redis_connect", verbose=True):
+        #    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+        r = REDIS_R_OBJ
         with Timer(f"r.set", verbose=True):
             r.set(key, table_data, ex=30) # 30s expiry 
     timers.append(t)
@@ -199,13 +198,20 @@ def main():
     #from waitress import serve
     #serve(app, host='0.0.0.0', port=8090)
     parser = argparse.ArgumentParser(description='Redis perf test server')
-    parser.add_argument('--redis-host', default="localhost", help='redis host')
+    parser.add_argument('--redis-host', default="127.0.0.1", help='redis host')
     parser.add_argument('--redis-port', type=int, default=6379, help='redis port')
     args = parser.parse_args()
+    global REDIS_HOST, REDIS_PORT, REDIS_R_OBJ
     REDIS_HOST = args.redis_host
     REDIS_PORT = args.redis_port
+    
 
-    app.run(host='0.0.0.0', port=8090, debug=True)
+    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+    logging.info("Redis connection: %s", r)
+    REDIS_R_OBJ = r
+
+    #app.run(host='0.0.0.0', port=8090, debug=True)    
+    waitress.serve(app, host='0.0.0.0', port=8090)
 
 
 if __name__=='__main__':

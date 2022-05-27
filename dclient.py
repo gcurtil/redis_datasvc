@@ -24,6 +24,9 @@ def get_url(p):
 
 
 def do_benchmark(redis_host: str, redis_port: int, num_runs: int):
+    # create redis connection
+    r = redis.Redis(host=redis_host, port=redis_port, db=0)
+
     cmd = "list_tables"
     with Timer("req %s", cmd, verbose=True):
         resp = requests.get(get_url(cmd), {})
@@ -64,8 +67,8 @@ def do_benchmark(redis_host: str, redis_port: int, num_runs: int):
                     resp = requests.get(get_url(cmd), { 'name' : name})
                     x = resp.json()
 
-                    with Timer(f"redis_connect", verbose=True):
-                        r = redis.Redis(host=redis_host, port=redis_port, db=0)
+                    #with Timer(f"redis_connect", verbose=True):
+                    #    r = redis.Redis(host=redis_host, port=redis_port, db=0)
                     with Timer(f"r.get", verbose=True):
                         table_data = r.get(x['key'])
                     with Timer(f"r.delete", verbose=True):
